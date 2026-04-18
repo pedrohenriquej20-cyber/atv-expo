@@ -1,24 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Switch, Button, FlatList, StyleSheet, Alert, TextInput } from 'react-native';
 
-const HEADERS = {
-  'X-Parse-Application-Id': '5TeimiGR7KvAT6OqJIEUemQso8YAUCosCkoNQGtU',
-  'X-Parse-JavaScript-Key': 'LMMOrUtj9MkS3OQlTmBBGmx6k60n5IgbQxM2eLUj',
-  'Content-Type': 'application/json'
-};
-
-const API_URL = 'https://parseapi.back4app.com/classes/Tarefa';
+// URL da sua API no Vercel
+const API_URL = 'https://app-express-livid.vercel.app/tarefas';
 
 export default function TelaTarefas() {
   const [tarefas, setTarefas] = useState([]);
   const [novaTarefa, setNovaTarefa] = useState('');
 
-  // Método GET (Listar)
+  // Método GET (Listar do NeonDB via Vercel)
   const carregarTarefas = async () => {
     try {
-      const response = await fetch(API_URL, { headers: HEADERS });
+      const response = await fetch(API_URL);
       const data = await response.json();
-      setTarefas(data.results);
+      setTarefas(data);
     } catch (error) {
       console.error("Erro ao buscar tarefas: ", error);
     }
@@ -28,55 +23,58 @@ export default function TelaTarefas() {
     carregarTarefas();
   }, []);
 
-  // Método POST (Criar nova tarefa)
+  // Método POST (Criar no NeonDB)
   const adicionarTarefa = async () => {
     if (novaTarefa.trim() === '') return;
     
     try {
       const response = await fetch(API_URL, {
         method: 'POST',
-        headers: HEADERS,
-        body: JSON.stringify({ descricao: novaTarefa, concluida: false })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          descricao: novaTarefa, // Nome exato da coluna no banco
+          concluida: false 
+        })
       });
       
       if (response.ok) {
-        setNovaTarefa(''); // Limpa o input
-        carregarTarefas(); // Recarrega a lista do banco
+        setNovaTarefa(''); 
+        carregarTarefas(); 
       }
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível adicionar a tarefa.');
     }
   };
 
-  // Método PUT (Atualizar o status de "concluida")
-  const alternarConclusao = async (id, statusAtual) => {
+  // Método PUT (Atualizar no NeonDB)
+  const alternarConclusao = async (id, statusAtual, descricao) => {
     try {
       const response = await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
-        headers: HEADERS,
-        body: JSON.stringify({ concluida: !statusAtual })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          descricao: descricao,
+          concluida: !statusAtual 
+        })
       });
       
       if (response.ok) {
-        setTarefas(tarefas.map(tarefa => 
-          tarefa.objectId === id ? { ...tarefa, concluida: !statusAtual } : tarefa
-        ));
+        carregarTarefas();
       }
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível atualizar a tarefa.');
     }
   };
 
-  // Método DELETE (Excluir tarefa)
+  // Método DELETE (Excluir do NeonDB)
   const deletarTarefa = async (id) => {
     try {
       const response = await fetch(`${API_URL}/${id}`, {
-        method: 'DELETE',
-        headers: HEADERS
+        method: 'DELETE'
       });
 
       if (response.ok) {
-        setTarefas(tarefas.filter(tarefa => tarefa.objectId !== id));
+        carregarTarefas();
       }
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível deletar a tarefa.');
@@ -92,12 +90,12 @@ export default function TelaTarefas() {
       <View style={styles.controles}>
         <Switch
           value={item.concluida}
-          onValueChange={() => alternarConclusao(item.objectId, item.concluida)}
+          onValueChange={() => alternarConclusao(item.id, item.concluida, item.descricao)}
         />
         <Button 
           title="Deletar" 
           color="#ff5c5c" 
-          onPress={() => deletarTarefa(item.objectId)} 
+          onPress={() => deletarTarefa(item.id)} 
         />
       </View>
     </View>
@@ -105,7 +103,6 @@ export default function TelaTarefas() {
 
   return (
     <View style={styles.container}>
-      {/* Formulário para adicionar nova tarefa */}
       <View style={styles.form}>
         <TextInput
           style={styles.input}
@@ -118,7 +115,7 @@ export default function TelaTarefas() {
 
       <FlatList
         data={tarefas}
-        keyExtractor={(item) => item.objectId}
+        keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
       />
     </View>
@@ -126,49 +123,11 @@ export default function TelaTarefas() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: '#f5f5f5',
-  },
-  form: {
-    flexDirection: 'row',
-    marginBottom: 20,
-    gap: 10,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: '#fff',
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  card: {
-    backgroundColor: '#fff',
-    padding: 15,
-    marginBottom: 10,
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-    elevation: 2,
-  },
-  texto: {
-    fontSize: 16,
-    flex: 1,
-  },
-  textoConcluido: {
-    textDecorationLine: 'line-through',
-    color: '#a0a0a0',
-  },
-  controles: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  }
+  container: { flex: 1, padding: 20, backgroundColor: '#f5f5f5' },
+  form: { flexDirection: 'row', marginBottom: 20, gap: 10 },
+  input: { flex: 1, backgroundColor: '#fff', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#ddd' },
+  card: { backgroundColor: '#fff', padding: 15, marginBottom: 10, borderRadius: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 2 },
+  texto: { fontSize: 16, flex: 1 },
+  textoConcluido: { textDecorationLine: 'line-through', color: '#a0a0a0' },
+  controles: { flexDirection: 'row', alignItems: 'center', gap: 10 }
 });
